@@ -1,0 +1,66 @@
+name: Conditional Execution Pipeline
+
+on:
+  push:
+    # Trigger on all pushes so we can see jobs get skipped on non-main branches
+    branches:
+      - '**'
+
+jobs:
+  linter:
+    name: Code Linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Run Linter
+        # A lightweight check to satisfy the dependency requirement
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  train:
+    name: GPU Model Training
+    needs: linter
+    runs-on: ubuntu-latest
+    
+    # THE GATEKEEPER: Job only runs if it's the main branch AND the commit message has the tag
+    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[run-train]')
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Expensive Training
+        run: |
+          echo "Allocating expensive GPU resources..."
+          # Mocking a script execution. 
+          # To test the failure() step later, you can change 'exit 0' to 'exit 1'
+          python -c "print('Simulating 50 epochs of GAN training...')" || exit 0
+          
+      - name: Capture Error Logs
+        # This step ONLY runs if the previous step fails
+        if: failure()
+        run: |
+          echo "FATAL: GPU Out of Memory exception at epoch 42." > error_logs.txt
+          echo "Check hyperparameter configurations." >> error_logs.txt
+
+      - name: Upload Error Artifact
+        # This step ONLY runs if the pipeline fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-error-logs
+          path: error_logs.txt
+
+      - name: Resource Teardown
+        # This step ALWAYS runs, regardless of success or failure
+        if: always()
+        run: echo "Cleaning up temporary cloud volumes..."
