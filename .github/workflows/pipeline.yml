@@ -43,7 +43,7 @@ jobs:
           echo "Allocating expensive GPU resources..."
           # Mocking a script execution. 
           # To test the failure() step later, you can change 'exit 0' to 'exit 1'
-          python -c "print('Simulating 50 epochs of GAN training...')" || exit 0
+          python -c "print('Simulating 50 epochs of GAN training...')" || exit 1
           
       - name: Capture Error Logs
         # This step ONLY runs if the previous step fails
